@@ -32,6 +32,7 @@ extern const SLIST_NAME(offset_t) SLIST_NAME(offset_sentinel);
 typedef int (*SLIST_NAME(rng))(void *);
 typedef int (*SLIST_NAME(comparator_t))(void *, void *);
 typedef void (*SLIST_NAME(key_destructor_t))(void *);
+typedef void (*SLIST_NAME(visitor_t))(void *, void *, void *);
 
 typedef struct SLIST_NAME(node_t) SLIST_NAME(node_t);
 typedef struct {
@@ -48,7 +49,10 @@ typedef struct {
 } SLIST_NAME(t);
 
 void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
-    SLIST_NAME(rng) rng, void *rng_context, int threshold);
+    SLIST_NAME(key_destructor_t) destructor, SLIST_NAME(rng) rng,
+    void *rng_context, int threshold);
+void SLIST_NAME(destroy)(SLIST_NAME(t) *list, SLIST_NAME(visitor_t) visitor,
+    void *context);
 
 void *SLIST_NAME(search)(SLIST_NAME(t) *list, void *key);
 void *SLIST_NAME(insert)(SLIST_NAME(t) *list, void *key, void *data);

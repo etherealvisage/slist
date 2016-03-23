@@ -1,4 +1,3 @@
-#include <stdio.h> // debugging
 /*
     Skip-list implementation, source file.
 
@@ -23,6 +22,8 @@ struct SLIST_NAME(node_t) {
     int link_count;
 };
 
+static void SLIST_NAME(destroy_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(visitor_t) visitor, void *context, SLIST_NAME(node_t) *node);
 static SLIST_NAME(node_t) *SLIST_NAME(search_helper)(SLIST_NAME(t) *list,
     SLIST_NAME(node_t) **links, int level, void *key);
 static SLIST_NAME(node_t) *SLIST_NAME(make_node)(SLIST_NAME(t) *list);
@@ -35,10 +36,11 @@ static int SLIST_NAME(depth_helper)(SLIST_NAME(t) *list,
     SLIST_NAME(node_t) **links, int level, void *key);
 
 void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
-    SLIST_NAME(rng) rng, void *rng_context, int threshold) {
+    SLIST_NAME(key_destructor_t) destructor, SLIST_NAME(rng) rng,
+    void *rng_context, int threshold) {
 
     list->comparator = cmp;
-    list->destructor = 0; // TODO
+    list->destructor = destructor;
 
     list->rng = rng;
     list->rng_context = rng_context;
@@ -47,6 +49,30 @@ void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
 
     list->links = NULL;
     list->link_count = 0;
+}
+
+static void SLIST_NAME(destroy_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(visitor_t) visitor, void *context, SLIST_NAME(node_t) *node) {
+
+    if(!node) return;
+    SLIST_NAME(destroy_helper)(list, visitor, context, node->links[0]);
+
+    visitor(context, node->key, node->data);
+
+    if(list->destructor) list->destructor(node->key);
+
+    SLIST_FREE(node->links);
+    SLIST_FREE(node);
+}
+
+void SLIST_NAME(destroy)(SLIST_NAME(t) *list, SLIST_NAME(visitor_t) visitor,
+    void *context) {
+
+    if(list->link_count) {
+        SLIST_NAME(destroy_helper)(list, visitor, context, list->links[0]);
+
+        SLIST_FREE(list->links);
+    }
 }
 
 static SLIST_NAME(node_t) *SLIST_NAME(search_helper)(SLIST_NAME(t) *list,
