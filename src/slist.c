@@ -24,12 +24,15 @@ struct SLIST_NAME(node_t) {
 };
 
 static SLIST_NAME(node_t) *SLIST_NAME(search_helper)(SLIST_NAME(t) *list,
-    SLIST_NAME(node_t) **links, int link_count, void *key);
+    SLIST_NAME(node_t) **links, int level, void *key);
+static SLIST_NAME(node_t) *SLIST_NAME(make_node)(SLIST_NAME(t) *list);
 static SLIST_NAME(node_t) *SLIST_NAME(insert_helper)(SLIST_NAME(t) *list,
     SLIST_NAME(node_t) ***links, int level, void *key,
     int *created);
-
-static SLIST_NAME(node_t) *SLIST_NAME(make_node)(SLIST_NAME(t) *list);
+static SLIST_NAME(node_t) *SLIST_NAME(remove_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(node_t) **links, int level, void *key);
+static int SLIST_NAME(depth_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(node_t) **links, int level, void *key);
 
 void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
     SLIST_NAME(rng) rng, void *rng_context, int threshold) {
@@ -47,20 +50,20 @@ void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
 }
 
 static SLIST_NAME(node_t) *SLIST_NAME(search_helper)(SLIST_NAME(t) *list,
-    SLIST_NAME(node_t) **links, int link_count, void *key) {
+    SLIST_NAME(node_t) **links, int level, void *key) {
 
-    for(int i = link_count-1; i >= 0; i --) {
-        if(!links[i]) continue;
+    for(; level >= 0; level --) {
+        if(!links[level]) continue;
 
-        int cmp = list->comparator(key, links[i]->key);
+        int cmp = list->comparator(key, links[level]->key);
         // have we found the target?
-        if(cmp == 0) return links[i];
+        if(cmp == 0) return links[level];
         // have we overshot the target?
         else if(cmp < 0) continue;
         // have we undershot the target?
         else if(cmp > 0) {
-            return SLIST_NAME(search_helper)(list, links[i]->links,
-                links[i]->link_count, key);
+            return SLIST_NAME(search_helper)(list, links[level]->links, level,
+                key);
         }
     }
 
@@ -70,7 +73,7 @@ static SLIST_NAME(node_t) *SLIST_NAME(search_helper)(SLIST_NAME(t) *list,
 
 void *SLIST_NAME(search)(SLIST_NAME(t) *list, void *key) {
     SLIST_NAME(node_t) *node = SLIST_NAME(search_helper)(list, list->links,
-        list->link_count, key);
+        list->link_count-1, key);
 
     if(node) return node->data;
     else return NULL;
@@ -119,15 +122,10 @@ static SLIST_NAME(node_t) *SLIST_NAME(insert_helper)(SLIST_NAME(t) *list,
     SLIST_NAME(node_t) *node = NULL;
     int entry_level = level;
 
-    //printf("insert_helper invoked, entry_level = %d\n", entry_level);
-
     for(; level >= 0; level --) {
         if(!(*links)[level]) continue;
 
-        //printf("links[%d] = %p\n", level, (*links)[level]);
-
         int cmp = list->comparator(key, (*links)[level]->key);
-        //printf("comparison: %d\n", cmp);
         // have we found the target?
         if(cmp == 0) {
             *created = 0;
@@ -148,8 +146,6 @@ static SLIST_NAME(node_t) *SLIST_NAME(insert_helper)(SLIST_NAME(t) *list,
         }
     }
 
-    //printf("finished loop\n");
-
     // do we create the node, or has the node been created by a sub-invocation?
     if(node == NULL) {
         // if reached, then there is no such node, so a new one is needed.
@@ -158,8 +154,9 @@ static SLIST_NAME(node_t) *SLIST_NAME(insert_helper)(SLIST_NAME(t) *list,
         level = 0;
         *created = 1;
     }
+    else level ++;
 
-    for(level ++; level <= entry_level && level < node->link_count; level ++) {
+    for(; level <= entry_level && level < node->link_count; level ++) {
         node->links[level] = (*links)[level];
         (*links)[level] = node;
     }
@@ -193,8 +190,84 @@ void *SLIST_NAME(insert)(SLIST_NAME(t) *list, void *key, void *data) {
     }
 }
 
+static SLIST_NAME(node_t) *SLIST_NAME(remove_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(node_t) **links, int level, void *key) {
+
+    SLIST_NAME(node_t) *node = 0;
+
+    for(; level >= 0; level --) {
+        if(!links[level]) continue;
+
+        int cmp = list->comparator(key, links[level]->key);
+        // have we found the target?
+        if(cmp == 0) {
+            node = links[level];
+            links[level] = node->links[level];
+        }
+        // have we overshot the target?
+        else if(cmp < 0) continue;
+        // have we undershot the target?
+        else if(cmp > 0) {
+            return SLIST_NAME(remove_helper)(list, links[level]->links, level,
+                key);
+        }
+    }
+
+    // if reached, then there is no such node.
+    return node;
+}
+
+void *SLIST_NAME(remove)(SLIST_NAME(t) *list, void *key) {
+    SLIST_NAME(node_t) *node;
+
+    node = SLIST_NAME(remove_helper)(list, list->links, list->link_count-1,
+        key);
+
+    if(!node) {
+        return 0;
+    }
+    else {
+        if(list->destructor) list->destructor(node->key);
+
+        void *data = node->data;
+        SLIST_FREE(node->links);
+        SLIST_FREE(node);
+        
+        return data;
+    }
+}
+
+static int SLIST_NAME(depth_helper)(SLIST_NAME(t) *list,
+    SLIST_NAME(node_t) **links, int level, void *key) {
+
+    for(; level >= 0; level --) {
+        if(!links[level]) continue;
+
+        int cmp = list->comparator(key, links[level]->key);
+        // have we found the target?
+        if(cmp == 0) return 0;
+        // have we overshot the target?
+        else if(cmp < 0) continue;
+        // have we undershot the target?
+        else if(cmp > 0) {
+            int pd = SLIST_NAME(depth_helper)(list, links[level]->links, level,
+                key);
+            if(pd == -1) return pd;
+            else return pd+1;
+        }
+    }
+    
+    return -1;
+}
+
+int SLIST_NAME(depth)(SLIST_NAME(t) *list, void *key) {
+    return SLIST_NAME(depth_helper)(list, list->links, list->link_count-1,
+        key);
+}
+
 int SLIST_NAME(linear_rng)(void *context) {
-    SLIST_NAME(linear_rng_context_t) *lcontext = context;
+    SLIST_NAME(linear_rng_context_t) *lcontext
+        = (SLIST_NAME(linear_rng_context_t) *)context;
 
     int nx = lcontext->a * lcontext->x + lcontext->b;
 
@@ -233,21 +306,4 @@ int SLIST_NAME(ulongcmp)(void *key1, void *key2) {
     if(val1 < val2) return -1;
     else if(val1 > val2) return 1;
     else return 0;
-}
-
-void dump_slist(SLIST_NAME(t) *list) {
-    printf("slist:\n");
-    printf("root links:\n");
-    for(int i = 0; i < list->link_count; i ++) {
-        printf("\t[%d]: %p\n", i, list->links[i]);
-    }
-    if(list->link_count == 0) return;
-    SLIST_NAME(node_t) *c = list->links[0];
-    while(c) {
-        printf("link %p (key: %p)\n", c, c->key);
-        for(int i = 0; i < c->link_count; i ++) {
-            printf("\t[%d]: %p\n", i, c->links[i]);
-        }
-        c = c->links[0];
-    }
 }

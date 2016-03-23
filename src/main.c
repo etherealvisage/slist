@@ -12,10 +12,21 @@ int main() {
 
     slist_init(&test, slist_ptrcmp, slist_linear_rng, &lrng, 50);
 
-    for(int i = 0; i < 1000; i ++) {
+    for(long i = 0; i < 10000; i ++) {
         slist_insert(&test, (void *)i, (void *)i);
     }
     printf("previous: %p\n", slist_insert(&test, (void *)8, (void *)1));
+
+    printf("[");
+    for(long i = 0; i < 10000; i ++) {
+        if(i != 0) printf(",");
+        printf("%d", slist_depth(&test, (void *)i));
+    }
+    printf("]\n");
+
+    printf("search result: %p\n", slist_search(&test, (void *)8));
+
+    printf("removal result: %p\n", slist_remove(&test, (void *)8));
 
     printf("search result: %p\n", slist_search(&test, (void *)8));
 

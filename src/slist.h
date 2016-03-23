@@ -52,6 +52,8 @@ void SLIST_NAME(init)(SLIST_NAME(t) *list, SLIST_NAME(comparator_t) cmp,
 
 void *SLIST_NAME(search)(SLIST_NAME(t) *list, void *key);
 void *SLIST_NAME(insert)(SLIST_NAME(t) *list, void *key, void *data);
+void *SLIST_NAME(remove)(SLIST_NAME(t) *list, void *key);
+int SLIST_NAME(depth)(SLIST_NAME(t) *list, void *key);
 
 typedef struct {
     int a, b;
@@ -65,7 +67,5 @@ void SLIST_NAME(default_linear_rng)(SLIST_NAME(linear_rng_context_t) *context);
 int SLIST_NAME(ptrcmp)(void *key1, void *key2);
 int SLIST_NAME(intcmp)(void *key1, void *key2);
 int SLIST_NAME(ulongcmp)(void *key1, void *key2);
-
-void dump_slist(SLIST_NAME(t) *list);
 
 #endif
