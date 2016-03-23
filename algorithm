@@ -1,0 +1,39 @@
+Iterative algorithm for insertion (K, V):
+- If skip list is empty, insert, initialize root link list, and terminate
+- Set B = root link list, H = root link list size - 1
+- Initialize stack S to empty
+- Set T = null
+- Forever:
+    - If H == -1, then break
+    - If B[H]->K == K, then set T = B[H] and break
+    - If B[H]->K > K, then set H = H - 1 and continue
+    - If B[H]->K < K, then push (B, length of B) onto S and set B = B[H]->List
+- If T is not null,
+    - Set T->V = V
+    - Terminate
+- Set T = new node with appropriately-distributed length list
+- If T->Len > root link list size,
+    - Resize root link list size,
+    - Assign empty pointers to T
+- Set I = 0
+- For I = 0 through T->Len - 1, do
+    - If I > length of B, set (B, length of B) = Pop(S)
+    - Set T->List[I] = B[I]
+    - Set B[I] = T
+
+Recursive non-base-case algorithm for insertion: IN(B, H, K, V, C):
+- Set T = null
+- Set H0 = H
+- Forever:
+    - If H == -1, then break
+    - If B[H]->K == K, then set T = B[H] and break
+    - If B[H]->K > K, then set H = H - 1 and continue
+    - If B[H]->K < K, then set T = IN(B[H]->List, H, K, V, C) and break
+- If T != null and *C = 0, then return T
+- If T == null, make new node T
+- Set H = H+1
+- While H <= H0:
+    - If H >= T->Height, then break
+    - Set B[H] = T
+    - Set H = H + 1
+- Return T
